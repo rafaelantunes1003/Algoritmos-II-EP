@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Labirinto com pilha: passo a passo</title>
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--ink:#16213a;--mut:#5b6784;--line:#d6deee;--acc:#6d4aff;--wall:#2b3350;--free:#fff;--vis:#a9d1ff;--path:#ffd45c;--cur:#ff7a59;--start:#4cd18a;--exit:#ff6b81;--nb:#a259ff;--code:#101a33;--codeink:#d7e2ff;--hl:#3b2f7a;--ok:#16a34a;--bad:#dc2626;
+--tc:#1d4ed8;--tp:#b45309;--tg:#15803d;--tr:#b91c1c;--tv:#7e22ce;--ts:#be185d;--tw:#475569;--tb:#0369a1;
+--barh:60px;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1226;--card:#141d38;--ink:#e8eeff;--mut:#9aa7cb;--line:#27345c;--free:#1b2748;--wall:#05080f;--vis:#2d5d9c;--path:#c9951a;--code:#0a1020;--hl:#4a3a9a;--tc:#7db2ff;--tp:#ffc266;--tg:#6ee7a0;--tr:#ff8a8a;--tv:#d2a8ff;--ts:#ff9fc4;--tw:#b6c2dc;--tb:#7dd3fc}}
+:root[data-theme="dark"]{--bg:#0b1226;--card:#141d38;--ink:#e8eeff;--mut:#9aa7cb;--line:#27345c;--free:#1b2748;--wall:#05080f;--vis:#2d5d9c;--path:#c9951a;--code:#0a1020;--hl:#4a3a9a;--tc:#7db2ff;--tp:#ffc266;--tg:#6ee7a0;--tr:#ff8a8a;--tv:#d2a8ff;--ts:#ff9fc4;--tw:#b6c2dc;--tb:#7dd3fc}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:12px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30}
+h1{margin:0 0 4px;font-size:clamp(22px,4vw,30px);background:linear-gradient(90deg,#6d4aff,#ff6b81,#ffb454);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mut);margin:0 0 10px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+button,select{font:inherit;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 11px;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+.go{background:linear-gradient(90deg,#6d4aff,#a259ff);color:#fff;border:0;font-weight:700}
+.nx{background:linear-gradient(90deg,#16a34a,#4cd18a);color:#fff;border:0;font-weight:700}
+.rnd{background:linear-gradient(90deg,#ff8a3d,#ff6b81);color:#fff;border:0;font-weight:700}
+.tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sep{width:1px;height:26px;background:var(--line)}
+.lb{font-size:13px;color:var(--mut)}
+.main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.side{order:-1;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--barh) + 8px);z-index:5;display:flex;flex-direction:column;gap:8px;max-height:46vh}
+.left{display:grid;gap:12px;min-width:0;align-content:start}
+@media (min-width:900px){.main{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr)}.side{order:0;grid-column:2;grid-row:1;max-height:calc(100vh - var(--barh) - 30px)}.left{grid-column:1;grid-row:1}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.card h2{margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+#maze{display:grid;gap:3px;justify-content:center;margin:6px 0}
+.cell{width:var(--cs,56px);aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;position:relative;background:var(--free);border:2px solid var(--line);color:var(--ink);transition:background .25s,transform .25s}
+.cell small{position:absolute;left:3px;top:1px;font-size:8px;font-weight:500;opacity:.6}
+.nosm small{display:none}
+.c1{background:var(--wall);color:#fff;border-color:var(--wall)}
+.c2{background:var(--start);color:#06311c}.c3{background:var(--exit);color:#fff}
+.c4{background:var(--vis)}.stk{background:var(--path);color:#2a1d00}
+.cur{outline:4px solid var(--cur);transform:scale(1.12);z-index:2}
+.nb{outline:4px dashed var(--nb);z-index:1}
+.leg{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--mut);margin-top:6px}
+.leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid var(--line)}
+#dim{font-size:13px;color:var(--mut);margin:6px 0 0}
+#stack{display:flex;flex-direction:column-reverse;gap:5px;max-height:300px;overflow:auto}
+.it{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#ffd45c,#ffb454);color:#2a1d00;border-radius:10px;padding:5px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+.it .ix{font-size:11px;opacity:.7;width:50px}
+.it.top{outline:3px solid var(--cur);animation:pop .35s}
+.it.top::after{content:"◀ topo";margin-left:auto;font-size:11px}
+@keyframes pop{from{transform:translateY(-14px) scale(.9);opacity:0}to{transform:none;opacity:1}}
+.arr{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--mut);margin-top:8px;word-break:break-all;max-height:84px;overflow:auto}
+.vars{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.v{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 6px;text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace}
+.v b{display:block;font-size:11px;color:var(--mut);font-weight:600}
+.cc{display:flex;flex-direction:column;min-height:0;flex:1;padding:10px}
+#code{position:relative;background:var(--code);color:var(--codeink);border-radius:10px;padding:8px 0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;overflow:auto;min-height:0;flex:1}
+.ln{display:block;padding:0 10px;white-space:pre;border-left:4px solid transparent}
+.ln.on{background:var(--hl);border-left-color:#ffb454;color:#fff}
+.ln .n{opacity:.4;margin-right:10px}
+#exp{border-left:8px solid var(--acc);font-size:clamp(17px,2.2vw,21px);line-height:1.6;padding:12px 14px}
+#exp small{display:block;color:var(--mut);font-size:12px;margin-bottom:2px;letter-spacing:.05em}
+#exp.good{border-left-color:var(--ok)}#exp.bad{border-left-color:var(--bad)}#exp.test{border-left-color:var(--nb)}#exp.read{border-left-color:var(--cur)}
+.h{padding:1px 6px;border-radius:7px;font-weight:700;white-space:nowrap;background:color-mix(in srgb,currentColor 15%,transparent)}
+.h.c{color:var(--tc)}.h.p{color:var(--tp)}.h.g{color:var(--tg)}.h.r{color:var(--tr)}.h.v{color:var(--tv)}.h.s{color:var(--ts)}.h.w{color:var(--tw)}.h.b{color:var(--tb)}
+#out{background:#000;color:#7CFC9A;border-radius:10px;padding:8px 10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;min-height:60px;max-height:150px;overflow:auto;white-space:pre-wrap}
+#res{display:none;margin-top:10px;padding:10px;border-radius:10px;font-weight:700;text-align:center;color:#fff}
+.msg{color:var(--mut);margin:6px 0 0}
+</style>
+</head>
+<body>
+<h1>Labirinto com pilha, passo a passo</h1>
+<p class="sub">Aperte <b>Iniciar programa</b> e depois <b>Próximo passo</b>. O código fica sempre visível ao lado.</p>
+
+<div class="bar" id="bar">
+  <button class="tab on" id="f1">Fase 1: com saída</button>
+  <button class="tab" id="f2">Fase 2: sem saída</button>
+  <span class="sep"></span>
+  <label class="lb">Tamanho <select id="tam"><option value="c">5×5 clássico</option><option value="5">5×5 aleatório</option><option value="7">7×7</option><option value="9">9×9</option><option value="11">11×11</option><option value="13">13×13</option></select></label>
+  <button class="rnd" id="ger">🎲 Gerar outro labirinto</button>
+  <span class="sep"></span>
+  <button class="go" id="ini">Iniciar programa</button>
+  <button id="ant" disabled>← Anterior</button>
+  <button class="nx" id="prx" disabled>Próximo passo →</button>
+  <button id="vol" disabled>Próxima volta ⏭</button>
+  <button id="auto" disabled>▶ Automático</button>
+  <label class="lb">Velocidade <select id="vel"><option value="0.25">0,25x</option><option value="0.5">0,5x</option><option value="0.75">0,75x</option><option value="1" selected>1x</option><option value="1.5">1,5x</option><option value="2">2x</option><option value="3">3x</option><option value="5">5x</option></select></label>
+</div>
+
+<div class="main">
+  <div class="side">
+    <div id="exp" class="card">Escolha a fase e aperte <b>Iniciar programa</b>.</div>
+    <div class="card cc"><h2>Código em execução</h2><div id="code"></div></div>
+  </div>
+  <div class="left">
+    <div class="card">
+      <h2>Mapa</h2>
+      <div id="maze"></div>
+      <div class="leg">
+        <span><i style="background:var(--start)"></i>entrada</span><span><i style="background:var(--exit)"></i>saída</span>
+        <span><i style="background:var(--wall)"></i>parede</span><span><i style="background:var(--vis)"></i>visitada</span>
+        <span><i style="background:var(--path)"></i>na pilha (caminho)</span><span><i style="border:2px solid var(--cur)"></i>posição atual</span>
+        <span><i style="border:2px dashed var(--nb)"></i>vizinho testado</span>
+      </div>
+      <p id="dim"></p>
+      <div id="res"></div>
+    </div>
+    <div class="card">
+      <h2>Pilha (do fundo ao topo)</h2>
+      <div id="stack"></div>
+      <div class="arr" id="arr"></div>
+      <h2 style="margin-top:14px">Variáveis</h2>
+      <div class="vars" id="vars"></div>
+    </div>
+    <div class="card">
+      <h2>Saída do programa (printf)</h2>
+      <div id="out"></div>
+      <p class="msg">Dica: <b>Próxima volta</b> pula direto para a próxima repetição do <code>while</code>.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const FIX={1:[[2,0,0,0,0],[1,1,1,0,1],[1,0,0,0,1],[1,0,1,1,1],[1,0,0,0,3]],
+ 2:[[2,0,0,0,0],[1,1,1,1,1],[1,0,0,0,1],[1,0,1,1,1],[1,0,0,0,3]]};
+const CODE=[
+"push(0, 0);                 // empilha a entrada",
+"while (size() > 0 && achou == 0) {",
+"    l = peekL(); c = peekC();   // posição atual = topo",
+"    avancou = 0;",
+"    for (d = 0; d < 4; d++) {",
+"        nl = l + dl[d]; nc = c + dc[d];  // vizinho",
+"        if (valida(nl,nc) && mapa[nl][nc] == 3) {  // é a saída?",
+"            push(nl, nc); achou = 1; avancou = 1; break;",
+"        }",
+"        if (valida(nl,nc) && mapa[nl][nc] == 0) {  // está livre?",
+"            mapa[nl][nc] = 4;    // marca como visitado",
+"            push(nl, nc);        // avança",
+"            avancou = 1; break;",
+"        }",
+"    }",
+"    if (avancou == 1) printf(\"avanca\");",
+"    else { printf(\"volta\"); pop(); }   // beco sem saída",
+"}",
+"if (achou == 1) printf(\"Saida encontrada\");",
+"else printf(\"Sem caminho\");"];
+const DL=[-1,0,1,0],DC=[0,1,0,-1],NM=["cima","direita","baixo","esquerda"];
+const H=(k,t)=>`<span class="h ${k}">${t}</span>`,CO=(a,b)=>H("c",`(${a},${b})`);
+
+function alcanca(g){const n=g.length,seen=new Set(["0,0"]),q=[[0,0]];
+  while(q.length){const [r,c]=q.pop();for(let d=0;d<4;d++){const x=r+DL[d],y=c+DC[d];
+    if(x>=0&&y>=0&&x<n&&y<n&&g[x][y]!==1&&!seen.has(x+","+y)){seen.add(x+","+y);q.push([x,y])}}}
+  return seen.has((n-1)+","+(n-1))}
+function gerar(n,comSaida){
+  for(;;){
+    const g=Array.from({length:n},()=>Array(n).fill(1)),stk=[[0,0]];g[0][0]=0;
+    while(stk.length){const [r,c]=stk[stk.length-1];
+      const o=[[-2,0],[2,0],[0,-2],[0,2]].map(([a,b])=>[r+a,c+b,a,b]).filter(([x,y])=>x>=0&&y>=0&&x<n&&y<n&&g[x][y]===1);
+      if(!o.length){stk.pop();continue}
+      const [x,y,a,b]=o[Math.random()*o.length|0];g[r+a/2][c+b/2]=0;g[x][y]=0;stk.push([x,y])}
+    for(let k=0;k<Math.floor(n/3);k++){const r=1+(Math.random()*(n-2)|0),c=1+(Math.random()*(n-2)|0);if((r+c)%2===1)g[r][c]=0}
+    if(!comSaida){const r=1+2*(Math.random()*((n-1)/2)|0);for(let c=0;c<n;c++)g[r][c]=1}
+    g[0][0]=2;g[n-1][n-1]=3;
+    if(alcanca(g)===comSaida)return g}}
+
+function simular(map){
+  const R=map.length,C=map[0].length,g=map.map(r=>r.slice()),st=[],out=[],steps=[];
+  let v={l:"-",c:"-",d:"-",nl:"-",nc:"-",av:"-",achou:0},cur=null,nb=null;
+  const snap=(line,text,kind,loop)=>steps.push({line,text,kind,loop,g:g.map(r=>r.slice()),st:st.map(p=>p.slice()),v:{...v},cur:cur&&[...cur],nb:nb&&[...nb],out:[...out]});
+  st.push([0,0]);cur=[0,0];
+  snap(0,`Começamos colocando a ${H("g","entrada")} ${CO(0,0)} na ${H("p","pilha")}. Ela é o ${H("p","topo")}: é aqui que estamos.`,"read");
+  let achou=0;
+  for(;;){
+    const cond=st.length>0&&achou===0;
+    snap(1,cond?`O ${H("b","while")} pergunta: “ainda tem algo na pilha?” ${H("g","Sim")}, são ${H("p",st.length)}. Então ${H("g","continuamos")}.`
+      :(st.length===0?`A pilha ficou ${H("r","vazia")}. O while ${H("r","termina")}: não há mais por onde andar.`:`A ${H("s","saída")} foi achada! O while ${H("g","termina")}.`),cond?"test":(achou?"good":"bad"),true);
+    if(!cond)break;
+    const [l,c]=st[st.length-1];cur=[l,c];nb=null;v.l=l;v.c=c;v.d=v.nl=v.nc="-";
+    snap(2,`Olhamos o ${H("p","topo")} da pilha. Estamos em ${CO(l,c)}.`,"read");
+    let av=0;v.av=0;snap(3,`Zeramos o ${H("b","avancou")}. Ele só vira 1 se acharmos um ${H("g","lado livre")}.`,"test");
+    for(let d=0;d<4;d++){
+      const nl=l+DL[d],nc=c+DC[d];v.d=d;v.nl=nl;v.nc=nc;nb=[nl,nc];
+      const ok=nl>=0&&nl<R&&nc>=0&&nc<C,val=ok?g[nl][nc]:null;
+      snap(4,`Vamos olhar o lado de ${H("v",NM[d])}.`,"test");
+      snap(5,`O vizinho de ${H("v",NM[d])} fica em ${CO(nl,nc)}.`,"test");
+      if(ok&&val===3){
+        snap(6,`É a saída? ${H("g","SIM")}! O vizinho ${CO(nl,nc)} é a ${H("s","saída")}.`,"good");
+        st.push([nl,nc]);achou=1;v.achou=1;av=1;v.av=1;cur=[nl,nc];
+        snap(7,`${H("g","push")}: colocamos a saída ${CO(nl,nc)} na pilha. O ${H("b","achou")} vira 1 e o ${H("b","break")} para o for.`,"good");break}
+      const why=!ok?`${H("r","fora do mapa")}`:(val===1?`é ${H("w","parede")}`:`já foi ${H("b","visitado")}`);
+      snap(6,`É a saída? ${H("r","Não")}${!ok?`: o lado está ${H("r","fora do mapa")}.`:`.`}`,"test");
+      if(ok&&val===0){
+        snap(9,`Está livre? ${H("g","SIM")}! ${CO(nl,nc)} está ${H("g","livre")}.`,"good");
+        g[nl][nc]=4;snap(10,`Pintamos ${CO(nl,nc)} de azul: ${H("b","visitado")}. Assim não voltamos aqui à toa.`,"read");
+        st.push([nl,nc]);cur=[nl,nc];snap(11,`${H("g","push")}: colocamos ${CO(nl,nc)} no topo da ${H("p","pilha")}. Demos um passo!`,"good");
+        av=1;v.av=1;snap(12,`${H("b","avancou")} = 1. O ${H("b","break")} para de olhar os outros lados: ${H("g","um passo por vez")}.`,"good");break}
+      snap(9,`Está livre? ${H("r","Não")}, ${why}. Vamos tentar ${H("v","outro lado")}.`,"bad");
+    }
+    nb=null;
+    if(av){out.push(`em (${l},${c}): avanca`);snap(15,`Avançamos a partir de ${CO(l,c)}. Na próxima volta olhamos o novo topo.`,"good")}
+    else{
+      out.push(`em (${l},${c}): volta`);st.pop();cur=st.length?[...st[st.length-1]]:null;
+      snap(16,`${H("r","Beco sem saída!")} Nenhum lado serve. O ${H("r","pop")} tira ${CO(l,c)} da pilha e ${H("r","voltamos")}${cur?` para ${CO(cur[0],cur[1])}`:`, mas a pilha ficou vazia`}.`,"bad")}
+  }
+  if(achou){const t=st[st.length-1];out.push(`Saida encontrada em (${t[0]},${t[1]})`);out.push(st.map(p=>`(${p[0]},${p[1]})`).join(" "));
+    snap(18,`${H("g","Deu certo!")} A ${H("p","pilha")}, do fundo ao topo, é o ${H("g","caminho")} da entrada até a saída: ${H("p",st.length+" células")}.`,"good")}
+  else{out.push("Sem caminho");snap(19,`${H("r","Sem caminho!")} A pilha esvaziou e a ${H("s","saída")} nunca foi alcançada. Todo o espaço possível foi ${H("b","explorado")}.`,"bad")}
+  steps[steps.length-1].fim=achou?"ok":"sem";
+  return steps}
+
+const $=id=>document.getElementById(id);
+let fase=1,mapas={1:FIX[1],2:FIX[2]},steps=[],idx=-1,timer=null;
+const codeEl=$("code");
+codeEl.innerHTML=CODE.map((t,i)=>`<span class="ln" id="L${i}"><span class="n">${String(i+1).padStart(2," ")}</span>${t.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</span>`).join("");
+
+function maze(g,st,cur,nb){
+  const n=g.length,m=$("maze"),w=Math.min(m.parentElement.clientWidth-30,560),cs=Math.max(20,Math.min(62,Math.floor(w/n)-3));
+  m.style.setProperty("--cs",cs+"px");m.style.gridTemplateColumns=`repeat(${n},auto)`;m.classList.toggle("nosm",cs<40);
+  const on=new Set(st.map(p=>p+""));
+  m.innerHTML=g.map((r,i)=>r.map((v,j)=>{let k="cell c"+v;if(on.has([i,j]+"")&&v!==3&&v!==2)k+=" stk";
+    if(cur&&cur[0]===i&&cur[1]===j)k+=" cur";if(nb&&nb[0]===i&&nb[1]===j)k+=" nb";
+    return `<div class="${k}"><small>${i},${j}</small>${v===2?"E":v===3?"S":""}</div>`}).join("")).join("")}
+function render(){
+  const s=idx<0?null:steps[idx],n=mapas[fase].length;
+  maze(s?s.g:mapas[fase].map(r=>r.slice()),s?s.st:[],s?s.cur:null,s?s.nb:null);
+  $("dim").textContent=`Mapa ${n}×${n}. No código C: #define LIN ${n}, COL ${n} e MAX ${n*n} (MAX precisa ser ≥ LIN × COL).`;
+  $("stack").innerHTML=s&&s.st.length?s.st.map((p,i)=>`<div class="it${i===s.st.length-1?" top":""}"><span class="ix">[${i}]</span>(${p[0]},${p[1]})</div>`).join(""):'<div class="msg">pilha vazia</div>';
+  $("arr").innerHTML=s?`pilhaL = [${s.st.map(p=>p[0]).join(", ")}]<br>pilhaC = [${s.st.map(p=>p[1]).join(", ")}]<br>topo = ${s.st.length-1}, size() = ${s.st.length}`:"topo = -1, size() = 0";
+  const v=s?s.v:{l:"-",c:"-",d:"-",nl:"-",nc:"-",av:"-",achou:0};
+  $("vars").innerHTML=[["l",v.l],["c",v.c],["d",v.d],["nl",v.nl],["nc",v.nc],["avancou",v.av],["achou",v.achou],["topo",s?s.st.length-1:-1]].map(a=>`<div class="v"><b>${a[0]}</b>${a[1]}</div>`).join("");
+  CODE.forEach((_,i)=>$("L"+i).classList.toggle("on",!!s&&s.line===i));
+  if(s){const el=$("L"+s.line);if(el.offsetTop<codeEl.scrollTop+8||el.offsetTop+el.offsetHeight>codeEl.scrollTop+codeEl.clientHeight-8)codeEl.scrollTop=el.offsetTop-codeEl.clientHeight/2}
+  $("out").textContent=s?s.out.join("\n"):"";$("out").scrollTop=1e9;
+  const e=$("exp");
+  if(s){e.className="card "+s.kind;e.innerHTML=`<small>PASSO ${idx+1} DE ${steps.length}</small>${s.text}`}
+  else{e.className="card";e.innerHTML=fase===1?`${H("g","Fase 1")}: existe um caminho até a ${H("s","saída")}. Cuidado com os ${H("r","becos sem saída")}! Aperte <b>Iniciar programa</b>.`
+    :`${H("r","Fase 2")}: a ${H("s","saída")} está ${H("w","trancada")} por paredes. Veja a pilha ${H("r","esvaziar")}. Aperte <b>Iniciar programa</b>.`}
+  const r=$("res");
+  if(s&&s.fim){r.style.display="block";r.style.background=s.fim==="ok"?"var(--ok)":"var(--bad)";
+    r.textContent=s.fim==="ok"?"Saída encontrada! O caminho amarelo é o conteúdo da pilha.":"Sem caminho: a pilha esvaziou."}else r.style.display="none";
+  const ini=idx>=0,fim=idx>=steps.length-1;
+  $("prx").disabled=!ini||fim;$("ant").disabled=!ini||idx<=0;$("vol").disabled=!ini||fim;$("auto").disabled=!ini||fim}
+const base=()=>1000/+$("vel").value;
+function parar(){clearInterval(timer);timer=null;$("auto").textContent="▶ Automático"}
+function prox(){if(idx<steps.length-1){idx++;render()}if(idx>=steps.length-1)parar()}
+function setFase(f){parar();fase=f;steps=simular(mapas[f]);idx=-1;
+  $("f1").classList.toggle("on",f===1);$("f2").classList.toggle("on",f===2);$("ini").textContent="Iniciar programa";render()}
+function novoTam(){const t=$("tam").value;
+  if(t==="c")mapas={1:FIX[1],2:FIX[2]};else{const n=+t;mapas={1:gerar(n,true),2:gerar(n,false)}}setFase(fase)}
+$("f1").onclick=()=>setFase(1);$("f2").onclick=()=>setFase(2);
+$("tam").onchange=novoTam;
+$("ger").onclick=()=>{const t=$("tam").value,n=t==="c"?5:+t;mapas[fase]=gerar(n,fase===1);setFase(fase)};
+$("ini").onclick=()=>{parar();idx=0;$("ini").textContent="Reiniciar programa";render()};
+$("prx").onclick=()=>{parar();prox()};
+$("ant").onclick=()=>{parar();if(idx>0){idx--;render()}};
+$("vol").onclick=()=>{parar();let j=idx+1;while(j<steps.length-1&&!steps[j].loop)j++;idx=Math.min(j,steps.length-1);render()};
+$("auto").onclick=()=>{if(timer){parar();return}$("auto").textContent="⏸ Pausar";timer=setInterval(prox,base())};
+$("vel").onchange=()=>{if(timer){clearInterval(timer);timer=setInterval(prox,base())}};
+const setH=()=>document.documentElement.style.setProperty("--barh",$("bar").offsetHeight+"px");
+new ResizeObserver(setH).observe($("bar"));addEventListener("resize",render);
+setH();setFase(1);
+</script>
+</body>
+</html>
